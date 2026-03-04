@@ -1,0 +1,71 @@
+# Standard mihomo (Clash.Meta) config with subscription provider.
+# Replace the subscription URL and secret before starting.
+mixed-port: 7990
+port: 7991
+socks-port: 7992
+redir-port: 7993
+allow-lan: true
+mode: global
+log-level: info
+external-controller: 0.0.0.0:9090
+secret: "1234567890"
+
+external-controller-cors:
+  allow-origins:
+    - "*"
+  allow-private-network: true
+
+# DNS (CN)
+dns:
+  enable: true
+  listen: 0.0.0.0:1053
+  ipv6: false
+  enhanced-mode: fake-ip
+  nameserver:
+    - 223.5.5.5
+    - 114.114.114.114
+  fallback:
+    - 1.1.1.1
+    - 8.8.8.8
+  fallback-filter:
+    geoip: true
+    geoip-code: CN
+    ipcidr:
+      - 240.0.0.0/4
+
+# TUN (transparent proxy)
+tun:
+  enable: true
+  stack: mixed
+  auto-route: true
+  auto-detect-interface: true
+
+proxy-providers:
+  qyt:
+    type: file
+    path: ./providers/qyt.yaml
+    health-check:
+      enable: true
+      interval: 600
+      url: https://cp.cloudflare.com/generate_204
+  equal:
+    type: file
+    path: ./providers/equal.yaml
+    interval: 3600
+    health-check:
+      enable: true
+      interval: 600
+      url: https://cp.cloudflare.com/generate_204
+
+proxies: []
+
+proxy-groups:
+  - name: "PROXY"
+    type: select
+    use:
+      - equal
+    proxies:
+      - DIRECT
+
+rules:
+  - MATCH,PROXY

@@ -1,0 +1,35 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# OS files
+.DS_Store
+
+# Editor/IDE
+.vscode/
+.idea/
+
+# Logs and temp files
+*.log
+*.pid
+*.tmp
+*.swp
+tmp/
+
+# Keep only baseline mihomo config in repo
+mihomo/*
+!mihomo/
+!mihomo/config.yaml
+
+# Privacy / sensitive local data
+scripts/provider-refresh.conf
+scripts/provider-refresh.conf.local
+mihomo/providers/*.yaml
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer

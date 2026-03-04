@@ -1,0 +1,37 @@
+services:
+  mihomo:
+    image: docker.io/metacubex/mihomo:Alpha
+    container_name: mihomo
+    restart: unless-stopped
+    volumes:
+      - ./mihomo:/root/.config/mihomo
+    ports:
+      - "7990:7990"
+      - "7991:7991"
+      - "7992:7992"
+      - "7993:7993"
+      - "9090:9090"
+
+  metacubexd:
+    image: ghcr.io/metacubex/metacubexd:v1.241.3
+    container_name: metacubexd
+    restart: unless-stopped
+    environment:
+      - DEFAULT_BACKEND_URL=http://mihomo:9090
+    ports:
+      - "8080:80"
+    depends_on:
+      - mihomo
+
+  provider-refresh-cron:
+    build:
+      context: .
+      dockerfile: ./docker/provider-refresh-cron/Dockerfile
+    container_name: provider-refresh-cron
+    restart: unless-stopped
+    depends_on:
+      - mihomo
+    volumes:
+      - ./:/workspace
+      - ./scripts/provider-refresh.cron:/etc/crontabs/root:ro
+      - /var/run/docker.sock:/var/run/docker.sock
