@@ -27,6 +27,7 @@ This project runs `mihomo` (Clash.Meta core) and the `MetaCubeXD` dashboard with
 - `./proxy-up.sh`: start all services
 - `./proxy-stop.sh`: stop services (keep containers)
 - `./proxy-down.sh`: stop and remove containers
+- `./proxy-clean.sh`: prune stopped containers, unused images, and build cache without touching running services
 - `./proxy-reload.sh`: restart `mihomo` to reload config
 - `./proxy-refresh.sh`: refresh provider files by list and restart `mihomo`
 - `./proxy-refresh-manual.sh`: trigger an immediate one-time refresh
@@ -42,6 +43,21 @@ The script does the following:
 1. Pull latest remote images (`mihomo`, `metacubexd`).
 2. Rebuild local `provider-refresh-cron` image with latest base image.
 3. Run `up -d` to recreate services with updated images.
+
+## Cleanup Docker Resources
+Run:
+```bash
+./proxy-clean.sh
+```
+
+The script does the following:
+1. Remove stopped containers.
+2. Remove unused images.
+3. Remove unused build cache.
+
+Note:
+- The script does not stop running containers.
+- The script does not remove Docker volumes.
 
 ## Provider Refresh Configuration
 `scripts/provider-refresh.sh` supports list-based provider refresh. To add a provider, only configuration changes are needed.
