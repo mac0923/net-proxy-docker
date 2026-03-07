@@ -13,7 +13,7 @@ services:
       - "9090:9090"
 
   metacubexd:
-    image: ghcr.io/metacubex/metacubexd:v1.241.3
+    image: ghcr.io/metacubex/metacubexd:latest
     container_name: metacubexd
     restart: unless-stopped
     environment:
