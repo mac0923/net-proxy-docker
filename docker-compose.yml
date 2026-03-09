@@ -19,7 +19,7 @@ services:
     environment:
       - DEFAULT_BACKEND_URL=http://mihomo:9090
     ports:
-      - "8080:80"
+      - "28080:80"
     depends_on:
       - mihomo
 
