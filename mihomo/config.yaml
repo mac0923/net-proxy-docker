@@ -33,9 +33,10 @@ dns:
     ipcidr:
       - 240.0.0.0/4
 
-# TUN (transparent proxy)
+# TUN is disabled in this Docker deployment because the container does not
+# provide a usable TUN device. Use the explicit proxy ports instead.
 tun:
-  enable: true
+  enable: false
   stack: mixed
   auto-route: true
   auto-detect-interface: true

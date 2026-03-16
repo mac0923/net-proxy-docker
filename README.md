@@ -28,6 +28,7 @@ This project runs `mihomo` (Clash.Meta core) and the `MetaCubeXD` dashboard with
 - `./proxy-stop.sh`: stop services (keep containers)
 - `./proxy-down.sh`: stop and remove containers
 - `./proxy-clean.sh`: prune stopped containers, unused images, and build cache without touching running services
+- `./proxy-reset-cache.sh`: back up and remove `mihomo/cache.db`, then recreate the `mihomo` container
 - `./proxy-reload.sh`: restart `mihomo` to reload config
 - `./proxy-refresh.sh`: refresh provider files by list and restart `mihomo`
 - `./proxy-refresh-manual.sh`: trigger an immediate one-time refresh
