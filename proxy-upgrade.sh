@@ -3,7 +3,7 @@ set -euo pipefail
 
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml}"
 
-echo "[1/3] Pull latest remote images..."
+echo "[1/3] Pull images declared in compose..."
 docker compose -f "$COMPOSE_FILE" pull mihomo metacubexd
 
 echo "[2/3] Rebuild local cron image with latest base image..."

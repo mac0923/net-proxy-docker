@@ -15,7 +15,7 @@ This project runs `mihomo` (Clash.Meta core) and the `MetaCubeXD` dashboard with
 4. Open the dashboard and verify everything is running.
 
 ## Endpoints and Ports
-- Dashboard (MetaCubeXD): `http://localhost:8080`
+- Dashboard (MetaCubeXD): `http://localhost:28080`
 - mihomo API: `http://localhost:9090` (requires `secret`)
 - Proxy ports (from `mihomo/config.yaml`):
   - mixed: `7990`
@@ -41,7 +41,7 @@ Run:
 ```
 
 The script does the following:
-1. Pull latest remote images (`mihomo`, `metacubexd`).
+1. Pull the image versions declared in `docker-compose.yml` (`mihomo`, `metacubexd`).
 2. Rebuild local `provider-refresh-cron` image with latest base image.
 3. Run `up -d` to recreate services with updated images.
 
@@ -95,18 +95,35 @@ Compatibility note:
   ```
 
 ## Change Default Provider
-The default provider is controlled by `proxy-groups.PROXY.use` in `mihomo/config.yaml`.
+The top-level outbound entry is `proxy-groups.PROXY` in `mihomo/config.yaml`.
 
-Example (use only `equal`):
+Available choices now:
+- `EQUAL`: direct single-hop via the `equal` provider
+- `QYT`: direct single-hop via the `qyt` provider
+- `EQUAL-VIA-QYT`: chain mode, use `equal` nodes as the exit hop and `QYT` as the dialer hop
+- `QYT-VIA-EQUAL`: chain mode, use `qyt` nodes as the exit hop and `EQUAL` as the dialer hop
+
+Recommended chain setup in MetaCubeXD:
+1. Open `http://localhost:28080`
+2. In group `QYT`, pick the first-hop node you want to use
+3. In group `EQUAL`, pick the first-hop node you want to use when using `QYT-VIA-EQUAL`
+4. In group `PROXY`, switch to either `EQUAL-VIA-QYT` or `QYT-VIA-EQUAL`
+5. Inside that chained group, pick the second-hop exit node
+
+The chained providers are implemented with `dialer-proxy`, so each node in the chained view will establish its connection through the corresponding first-hop group.
+
+If you want to force a direct single-hop default in config, keep only the direct groups in `PROXY`:
 ```yaml
 proxy-groups:
   - name: "PROXY"
     type: select
-    use:
-      - equal
+    proxies:
+      - EQUAL
+      - QYT
+      - DIRECT
 ```
 
-Then apply changes:
+Apply config changes with:
 ```bash
 ./proxy-reload.sh
 ```
