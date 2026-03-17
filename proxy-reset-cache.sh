@@ -2,7 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml}"
+COMPOSE_FILE="${COMPOSE_FILE:-$ROOT/docker-compose.yml}"
+COMPOSE_BIN="$ROOT/scripts/compose.sh"
 CACHE_FILE="$ROOT/mihomo/cache.db"
 
 cd "$ROOT"
@@ -19,6 +20,6 @@ else
 fi
 
 echo "[2/2] Recreate mihomo container..."
-docker compose -f "$COMPOSE_FILE" up -d --force-recreate mihomo
+"$COMPOSE_BIN" -f "$COMPOSE_FILE" up -d --force-recreate mihomo
 
 echo "Cache reset completed."

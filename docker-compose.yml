@@ -3,21 +3,16 @@ services:
     image: docker.io/metacubex/mihomo:v1.19.20
     container_name: mihomo
     restart: unless-stopped
+    network_mode: host
     volumes:
       - ./mihomo:/root/.config/mihomo
-    ports:
-      - "7990:7990"
-      - "7991:7991"
-      - "7992:7992"
-      - "7993:7993"
-      - "9090:9090"
 
   metacubexd:
     image: ghcr.io/metacubex/metacubexd:latest
     container_name: metacubexd
     restart: unless-stopped
     environment:
-      - DEFAULT_BACKEND_URL=http://mihomo:9090
+      - DEFAULT_BACKEND_URL=http://host.docker.internal:9090
     ports:
       - "28080:80"
     depends_on:
@@ -29,9 +24,11 @@ services:
       dockerfile: ./docker/provider-refresh-cron/Dockerfile
     container_name: provider-refresh-cron
     restart: unless-stopped
+    network_mode: host
     depends_on:
       - mihomo
+    environment:
+      - MIHOMO_CONTROLLER_URL=http://127.0.0.1:9090
     volumes:
       - ./:/workspace
       - ./scripts/provider-refresh.cron:/etc/crontabs/root:ro
-      - /var/run/docker.sock:/var/run/docker.sock

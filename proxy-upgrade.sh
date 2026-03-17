@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml}"
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+COMPOSE_FILE="${COMPOSE_FILE:-$ROOT/docker-compose.yml}"
+COMPOSE_BIN="$ROOT/scripts/compose.sh"
 
 echo "[1/3] Pull images declared in compose..."
-docker compose -f "$COMPOSE_FILE" pull mihomo metacubexd
+"$COMPOSE_BIN" -f "$COMPOSE_FILE" pull mihomo metacubexd
 
 echo "[2/3] Rebuild local cron image with latest base image..."
-docker compose -f "$COMPOSE_FILE" build --pull provider-refresh-cron
+"$COMPOSE_BIN" -f "$COMPOSE_FILE" build --pull provider-refresh-cron
 
 echo "[3/3] Recreate services with updated images..."
-docker compose -f "$COMPOSE_FILE" up -d
+"$COMPOSE_BIN" -f "$COMPOSE_FILE" up -d
 
 echo "Upgrade completed."

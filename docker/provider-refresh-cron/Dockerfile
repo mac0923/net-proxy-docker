@@ -1,6 +1,6 @@
 FROM alpine:latest
 
-RUN apk add --no-cache bash curl docker-cli tzdata
+RUN apk add --no-cache bash curl tzdata
 
 WORKDIR /workspace
 

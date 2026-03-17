@@ -1,6 +1,11 @@
 # mihomo + MetaCubeXD (Docker Setup)
 
-This project runs `mihomo` (Clash.Meta core) and the `MetaCubeXD` dashboard with `docker compose`, and supports both manual and scheduled provider refresh.
+This project runs `mihomo` (Clash.Meta core) and the `MetaCubeXD` dashboard with Docker Compose, and supports both manual and scheduled provider refresh.
+
+It is compatible with OrbStack:
+- scripts auto-detect `docker compose` and standalone `docker-compose`
+- scheduled refresh reloads `mihomo` through the controller API instead of mounting the host Docker socket
+- `mihomo` now runs with `network_mode: host`, while MetaCubeXD keeps `28080` as the dashboard entry
 
 ## Quick Start
 1. Prepare environment variables:
@@ -14,10 +19,12 @@ This project runs `mihomo` (Clash.Meta core) and the `MetaCubeXD` dashboard with
    ```
 4. Open the dashboard and verify everything is running.
 
+If you use OrbStack, make sure OrbStack is already running before executing the scripts.
+
 ## Endpoints and Ports
 - Dashboard (MetaCubeXD): `http://localhost:28080`
-- mihomo API: `http://localhost:9090` (requires `secret`)
-- Proxy ports (from `mihomo/config.yaml`):
+- mihomo API: `http://localhost:9090` (requires `secret`, exposed by host network mode)
+- Proxy ports (from `mihomo/config.yaml`, exposed by host network mode):
   - mixed: `7990`
   - http: `7991`
   - socks5: `7992`
@@ -30,7 +37,7 @@ This project runs `mihomo` (Clash.Meta core) and the `MetaCubeXD` dashboard with
 - `./proxy-clean.sh`: prune stopped containers, unused images, and build cache without touching running services
 - `./proxy-reset-cache.sh`: back up and remove `mihomo/cache.db`, then recreate the `mihomo` container
 - `./proxy-reload.sh`: restart `mihomo` to reload config
-- `./proxy-refresh.sh`: refresh provider files by list and restart `mihomo`
+- `./proxy-refresh.sh`: refresh provider files by list and reload `mihomo`
 - `./proxy-refresh-manual.sh`: trigger an immediate one-time refresh
 - `./proxy-upgrade.sh`: pull newer images and recreate services
 
@@ -85,7 +92,7 @@ Compatibility note:
 - `qyt` still supports legacy `SUB_URL` (recommended to migrate to `QYT_SUB_URL`).
 
 ## Scheduled Refresh
-`docker compose up -d` also starts `provider-refresh-cron` for automatic refresh.
+`./proxy-up.sh` also starts `provider-refresh-cron` for automatic refresh.
 
 - Cron file: `scripts/provider-refresh.cron`
 - Default schedule: `0 * * * * /workspace/scripts/provider-refresh.sh`
@@ -130,6 +137,7 @@ Apply config changes with:
 
 ## Repository Layout
 - `docker-compose.yml`: container orchestration
+- `scripts/compose.sh`: Compose compatibility wrapper for `docker compose` / `docker-compose`
 - `mihomo/config.yaml`: mihomo core config (ports, rules, provider references)
 - `scripts/provider-refresh.sh`: provider refresh script
 - `scripts/provider-refresh.conf`: local fallback config

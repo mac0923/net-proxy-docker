@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-docker compose -f docker-compose.yml stop
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+COMPOSE_FILE="${COMPOSE_FILE:-$ROOT/docker-compose.yml}"
+
+exec "$ROOT/scripts/compose.sh" -f "$COMPOSE_FILE" stop

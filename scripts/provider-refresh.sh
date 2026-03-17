@@ -6,6 +6,10 @@ ENV_FILE="${ENV_FILE:-$ROOT/.env}"
 CONF_FILE="${CONF_FILE:-$ROOT/scripts/provider-refresh.conf}"
 PROVIDERS_DIR="${PROVIDERS_DIR:-$ROOT/mihomo/providers}"
 MIHOMO_CONTAINER="${MIHOMO_CONTAINER:-mihomo}"
+MIHOMO_CONFIG_FILE="${MIHOMO_CONFIG_FILE:-$ROOT/mihomo/config.yaml}"
+MIHOMO_CONFIG_PATH="${MIHOMO_CONFIG_PATH:-/root/.config/mihomo/config.yaml}"
+MIHOMO_CONTROLLER_URL="${MIHOMO_CONTROLLER_URL:-}"
+MIHOMO_API_SECRET="${MIHOMO_API_SECRET:-}"
 PROCESS_PROVIDER_NAME="${PROVIDER_NAME:-}"
 PROCESS_PROVIDER_LIST="${PROVIDER_LIST:-}"
 PROCESS_SUB_URL="${SUB_URL:-}"
@@ -73,6 +77,65 @@ cleanup() {
 }
 trap cleanup EXIT
 
+load_mihomo_api_secret() {
+  if [[ -n "$MIHOMO_API_SECRET" ]]; then
+    return 0
+  fi
+
+  if [[ -f "$MIHOMO_CONFIG_FILE" ]]; then
+    MIHOMO_API_SECRET="$(
+      sed -nE 's/^[[:space:]]*secret:[[:space:]]*"?([^"#]+)"?.*$/\1/p' "$MIHOMO_CONFIG_FILE" | head -n 1
+    )"
+  fi
+}
+
+reload_mihomo_via_api() {
+  local controller_url
+  local payload
+  local -a urls headers
+
+  urls=()
+  if [[ -n "$MIHOMO_CONTROLLER_URL" ]]; then
+    urls+=("$MIHOMO_CONTROLLER_URL")
+  elif [[ -f "/.dockerenv" ]]; then
+    urls+=("http://mihomo:9090" "http://127.0.0.1:9090" "http://localhost:9090")
+  else
+    urls+=("http://127.0.0.1:9090" "http://localhost:9090" "http://mihomo:9090")
+  fi
+
+  headers=(-H "Content-Type: application/json")
+  if [[ -n "$MIHOMO_API_SECRET" ]]; then
+    headers+=(-H "Authorization: Bearer $MIHOMO_API_SECRET")
+  fi
+
+  payload=$(printf '{"path":"%s"}' "$MIHOMO_CONFIG_PATH")
+
+  for controller_url in "${urls[@]}"; do
+    if curl -fsS --connect-timeout 3 --max-time 15 -X PUT \
+      "${headers[@]}" \
+      --data "$payload" \
+      "${controller_url%/}/configs?force=true" >/dev/null; then
+      echo "[$(date '+%Y-%m-%d %H:%M:%S')] reloaded mihomo via API: ${controller_url%/}"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+restart_mihomo_via_docker() {
+  if ! command -v docker >/dev/null 2>&1; then
+    return 1
+  fi
+
+  if docker restart "$MIHOMO_CONTAINER" >/dev/null 2>&1; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] restarted mihomo container: $MIHOMO_CONTAINER"
+    return 0
+  fi
+
+  return 1
+}
+
 for provider in $TARGET_LIST; do
   provider="${provider// /}"
   if [[ -z "$provider" ]]; then
@@ -116,7 +179,12 @@ for provider in $TARGET_LIST; do
 done
 
 if (( ${#SUCCESS_PROVIDERS[@]} > 0 )); then
-  docker restart "$MIHOMO_CONTAINER" >/dev/null
+  load_mihomo_api_secret
+
+  if ! reload_mihomo_via_api && ! restart_mihomo_via_docker; then
+    echo "Refreshed providers, but failed to reload mihomo via API or docker restart." >&2
+    exit 1
+  fi
 fi
 
 if (( ${#FAILED_PROVIDERS[@]} > 0 )); then
