@@ -19,12 +19,17 @@ TARGET_LIST=""
 SUCCESS_PROVIDERS=()
 FAILED_PROVIDERS=()
 TEMP_FILES=()
+SUCCESS_PROVIDER_COUNT=0
+FAILED_PROVIDER_COUNT=0
+TEMP_FILE_COUNT=0
 
 # Keep runtime *_SUB_URL env overrides at highest priority.
-declare -A PROCESS_URL_OVERRIDES=()
-while IFS='=' read -r key _; do
-  PROCESS_URL_OVERRIDES["$key"]="${!key}"
-done < <(env | awk -F= '/^[A-Za-z_][A-Za-z0-9_]*_SUB_URL=/{print $1}')
+# Use a newline-delimited string so the script still works on Bash 3.x
+# even with `set -u` and no runtime overrides.
+PROCESS_URL_OVERRIDES=""
+while IFS= read -r env_line; do
+  PROCESS_URL_OVERRIDES+="${env_line}"$'\n'
+done < <(env | awk '/^[A-Za-z_][A-Za-z0-9_]*_SUB_URL=/{print}')
 
 if [[ -f "$ENV_FILE" ]]; then
   set -a
@@ -41,9 +46,14 @@ if [[ -f "$CONF_FILE" ]]; then
 fi
 
 # Re-apply runtime overrides after loading files.
-for key in "${!PROCESS_URL_OVERRIDES[@]}"; do
-  export "$key=${PROCESS_URL_OVERRIDES[$key]}"
-done
+if [[ -n "$PROCESS_URL_OVERRIDES" ]]; then
+  while IFS= read -r env_line; do
+    [[ -n "$env_line" ]] || continue
+    key="${env_line%%=*}"
+    value="${env_line#*=}"
+    export "$key=$value"
+  done <<< "$PROCESS_URL_OVERRIDES"
+fi
 
 if [[ -n "$PROCESS_SUB_URL" ]]; then
   SUB_URL="$PROCESS_SUB_URL"
@@ -71,6 +81,10 @@ mkdir -p "$PROVIDERS_DIR"
 
 cleanup() {
   local tmp
+  if (( TEMP_FILE_COUNT == 0 )); then
+    return
+  fi
+
   for tmp in "${TEMP_FILES[@]}"; do
     rm -f "$tmp"
   done
@@ -145,6 +159,7 @@ for provider in $TARGET_LIST; do
   if [[ ! "$provider" =~ ^[A-Za-z0-9_-]+$ ]]; then
     echo "Invalid provider name: '$provider'" >&2
     FAILED_PROVIDERS+=("$provider")
+    ((FAILED_PROVIDER_COUNT += 1))
     continue
   fi
 
@@ -160,25 +175,29 @@ for provider in $TARGET_LIST; do
   if [[ -z "$provider_url" || "$provider_url" == "TODO" ]]; then
     echo "Missing ${provider_url_var} for provider '$provider'. Set it in env/.env/$CONF_FILE." >&2
     FAILED_PROVIDERS+=("$provider")
+    ((FAILED_PROVIDER_COUNT += 1))
     continue
   fi
 
   out_file="$PROVIDERS_DIR/${provider}.yaml"
   tmp_file="${out_file}.tmp"
   TEMP_FILES+=("$tmp_file")
+  ((TEMP_FILE_COUNT += 1))
 
   if ! curl -fL --retry 3 --connect-timeout 10 --max-time 60 -A "$UA" "$provider_url" -o "$tmp_file"; then
     echo "Failed to refresh provider '$provider'." >&2
     FAILED_PROVIDERS+=("$provider")
+    ((FAILED_PROVIDER_COUNT += 1))
     continue
   fi
 
   mv "$tmp_file" "$out_file"
   SUCCESS_PROVIDERS+=("$provider")
+  ((SUCCESS_PROVIDER_COUNT += 1))
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] refreshed provider '$provider'"
 done
 
-if (( ${#SUCCESS_PROVIDERS[@]} > 0 )); then
+if (( SUCCESS_PROVIDER_COUNT > 0 )); then
   load_mihomo_api_secret
 
   if ! reload_mihomo_via_api && ! restart_mihomo_via_docker; then
@@ -187,12 +206,12 @@ if (( ${#SUCCESS_PROVIDERS[@]} > 0 )); then
   fi
 fi
 
-if (( ${#FAILED_PROVIDERS[@]} > 0 )); then
+if (( FAILED_PROVIDER_COUNT > 0 )); then
   echo "Failed providers: ${FAILED_PROVIDERS[*]}" >&2
   exit 1
 fi
 
-if (( ${#SUCCESS_PROVIDERS[@]} == 0 )); then
+if (( SUCCESS_PROVIDER_COUNT == 0 )); then
   echo "No providers refreshed. Check PROVIDER_LIST / *_SUB_URL config." >&2
   exit 1
 fi

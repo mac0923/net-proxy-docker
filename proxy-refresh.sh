@@ -2,4 +2,4 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-exec "$ROOT/scripts/provider-refresh.sh"
+exec bash "$ROOT/scripts/provider-refresh.sh"
