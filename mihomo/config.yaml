@@ -42,13 +42,6 @@ tun:
   auto-detect-interface: true
 
 proxy-providers:
-  qyt:
-    type: file
-    path: ./providers/qyt.yaml
-    health-check:
-      enable: true
-      interval: 600
-      url: https://cp.cloudflare.com/generate_204
   equal:
     type: file
     path: ./providers/equal.yaml
