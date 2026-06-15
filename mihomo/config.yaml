@@ -6,6 +6,7 @@ socks-port: 7992
 redir-port: 7993
 allow-lan: true
 mode: global
+ipv6: false
 log-level: info
 external-controller: 0.0.0.0:9090
 secret: "1234567890"
@@ -57,27 +58,10 @@ proxy-providers:
 proxies: []
 
 proxy-groups:
-  - name: "PROXY"
-    type: select
-    proxies:
-      - AUTO
-      - MANUAL
-      - DIRECT
-
-  - name: "AUTO"
-    type: fallback
-    use:
-      - equal
-    url: https://cp.cloudflare.com/generate_204
-    interval: 300
-    lazy: false
-
-  - name: "MANUAL"
+  - name: "GLOBAL"
     type: select
     use:
       - equal
-    proxies:
-      - DIRECT
 
 rules:
-  - MATCH,PROXY
+  - MATCH,GLOBAL

@@ -112,28 +112,17 @@ Compatibility note:
   ```
 
 ## Change Default Provider
-The top-level outbound entry is `proxy-groups.PROXY` in `mihomo/config.yaml`.
+The top-level outbound entry is `proxy-groups.GLOBAL` in `mihomo/config.yaml`.
 
-Available choices now:
-- `AUTO`: fallback mode via the `equal` provider; this is the recommended stable default
-- `MANUAL`: direct manual selection via the `equal` provider
-- `DIRECT`: bypass proxy
+This deployment runs `mihomo` in `global` mode. All client traffic goes through
+the `GLOBAL` group, and `GLOBAL` selects directly from the `equal` provider.
+Subscription nodes are not filtered or hidden from the Web UI, and `DIRECT` is
+not added as a local choice.
 
 Recommended setup in MetaCubeXD:
 1. Open `http://localhost:28080`
-2. Keep group `PROXY` on `AUTO` for normal use
-3. Use `MANUAL` only when you need to pin a specific node temporarily
-
-If you want to force a direct single-hop default in config, keep only the direct groups in `PROXY`:
-```yaml
-proxy-groups:
-  - name: "PROXY"
-    type: select
-    proxies:
-      - AUTO
-      - MANUAL
-      - DIRECT
-```
+2. Use the `GLOBAL` group as the only normal outbound group
+3. If a node has Reality authentication failures in Docker but works on the host, check the Docker runtime network path instead of changing the subscription
 
 Apply config changes with:
 ```bash
@@ -145,8 +134,36 @@ This setup publishes UDP ports explicitly instead of relying on Docker host netw
 - Use `7992/udp` for SOCKS5 UDP associate clients.
 - Use `1053/udp` for DNS clients.
 - DNS upstreams use DoH, so clients can keep using UDP to this host while `mihomo` resolves through HTTPS upstreams.
+- `mihomo` runs in `global` mode, so client traffic uses the selected/tested proxy node instead of local direct rules.
+- Runtime IPv6 is disabled to avoid clients preferring IPv6 destinations when the Docker deployment and provider nodes are primarily IPv4-oriented.
 
-If `7992/udp` accepts SOCKS5 UDP associate but external UDP requests still time out, check MetaCubeXD or the controller API for `AUTO` health. When all provider nodes are unhealthy, no Docker-side configuration can make proxied UDP work; refresh or replace the subscription first.
+If `7992/udp` accepts SOCKS5 UDP associate but external UDP requests still time out, check MetaCubeXD or the controller API for `GLOBAL` health. When `GLOBAL` health fails with `REALITY authentication failed`, check the Docker runtime network path before changing the subscription.
+
+### OrbStack Network Proxy
+This project is currently running on OrbStack. OrbStack's `network_proxy=auto`
+can transparently send container egress through a different proxy path than the
+macOS host. Reality nodes may reject that path even when the same subscription
+works in Clash Verge Rev on the host.
+
+Use a direct OrbStack container egress path:
+```bash
+orbctl config set network_proxy none
+orbctl stop
+orbctl start
+```
+
+Verify the fix:
+```bash
+docker info | grep -i 'HTTP Proxy'
+docker run --rm curlimages/curl:8.10.1 https://checkip.amazonaws.com
+curl --socks5-hostname 127.0.0.1:7992 https://cp.cloudflare.com/generate_204 -I
+```
+
+## Mihomo Core Version
+This compose file pins `metacubex/mihomo:v1.19.25` to match the Mihomo core
+bundled by Clash Verge Rev 2.5.1 on this machine. If Reality nodes still fail
+with this core version, compare the Docker runtime network path with the working
+desktop client before changing or hiding subscription nodes.
 
 ## Repository Layout
 - `proxy.sh`: single command entrypoint for container operations
