@@ -12,7 +12,6 @@ MIHOMO_CONTROLLER_URL="${MIHOMO_CONTROLLER_URL:-}"
 MIHOMO_API_SECRET="${MIHOMO_API_SECRET:-}"
 PROCESS_PROVIDER_NAME="${PROVIDER_NAME:-}"
 PROCESS_PROVIDER_LIST="${PROVIDER_LIST:-}"
-PROCESS_SUB_URL="${SUB_URL:-}"
 PROCESS_SUB_UA="${SUB_UA:-}"
 UA=""
 TARGET_LIST=""
@@ -31,13 +30,6 @@ while IFS= read -r env_line; do
   PROCESS_URL_OVERRIDES+="${env_line}"$'\n'
 done < <(env | awk '/^[A-Za-z_][A-Za-z0-9_]*_SUB_URL=/{print}')
 
-if [[ -f "$ENV_FILE" ]]; then
-  set -a
-  # shellcheck disable=SC1090
-  source "$ENV_FILE"
-  set +a
-fi
-
 if [[ -f "$CONF_FILE" ]]; then
   set -a
   # shellcheck disable=SC1090
@@ -45,7 +37,14 @@ if [[ -f "$CONF_FILE" ]]; then
   set +a
 fi
 
-# Re-apply runtime overrides after loading files.
+if [[ -f "$ENV_FILE" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+fi
+
+# Re-apply runtime overrides after loading fallback config and .env.
 if [[ -n "$PROCESS_URL_OVERRIDES" ]]; then
   while IFS= read -r env_line; do
     [[ -n "$env_line" ]] || continue
@@ -53,10 +52,6 @@ if [[ -n "$PROCESS_URL_OVERRIDES" ]]; then
     value="${env_line#*=}"
     export "$key=$value"
   done <<< "$PROCESS_URL_OVERRIDES"
-fi
-
-if [[ -n "$PROCESS_SUB_URL" ]]; then
-  SUB_URL="$PROCESS_SUB_URL"
 fi
 
 if [[ -n "$PROCESS_PROVIDER_LIST" ]]; then
@@ -72,7 +67,7 @@ UA="${SUB_UA:-ClashforWindows/0.20.39}"
 if [[ -n "$PROCESS_PROVIDER_NAME" ]]; then
   TARGET_LIST="$PROCESS_PROVIDER_NAME"
 else
-  TARGET_LIST="${PROVIDER_LIST:-qyt,equal}"
+  TARGET_LIST="${PROVIDER_LIST:-equal}"
 fi
 
 TARGET_LIST="${TARGET_LIST//,/ }"
@@ -166,11 +161,6 @@ for provider in $TARGET_LIST; do
   upper_provider="$(printf '%s' "$provider" | tr '[:lower:]-' '[:upper:]_')"
   provider_url_var="${upper_provider}_SUB_URL"
   provider_url="${!provider_url_var:-}"
-
-  # Backward compatibility for old qyt var naming.
-  if [[ "$provider" == "qyt" && -z "$provider_url" ]]; then
-    provider_url="${SUB_URL:-}"
-  fi
 
   if [[ -z "$provider_url" || "$provider_url" == "TODO" ]]; then
     echo "Missing ${provider_url_var} for provider '$provider'. Set it in env/.env/$CONF_FILE." >&2

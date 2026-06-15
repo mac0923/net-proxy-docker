@@ -5,7 +5,7 @@ This project runs `mihomo` (Clash.Meta core) and the `MetaCubeXD` dashboard with
 It is compatible with OrbStack:
 - scripts auto-detect `docker compose` and standalone `docker-compose`
 - scheduled refresh reloads `mihomo` through the controller API instead of mounting the host Docker socket
-- `mihomo` now runs with `network_mode: host`, while MetaCubeXD keeps `28080` as the dashboard entry
+- `mihomo` uses normal bridge networking with explicit TCP/UDP port publishing, while MetaCubeXD keeps `28080` as the dashboard entry
 
 ## Quick Start
 1. Prepare environment variables:
@@ -13,49 +13,60 @@ It is compatible with OrbStack:
    cp .env.example .env
    ```
 2. Update `.env` with your own subscription values.
-3. Start services:
+3. Refresh provider files once:
    ```bash
-   ./proxy-up.sh
+   ./proxy.sh refresh
    ```
-4. Open the dashboard and verify everything is running.
+4. Start services:
+   ```bash
+   ./proxy.sh up
+   ```
+5. Open the dashboard and verify everything is running.
 
 If you use OrbStack, make sure OrbStack is already running before executing the scripts.
 
 ## Endpoints and Ports
 - Dashboard (MetaCubeXD): `http://localhost:28080`
-- mihomo API: `http://localhost:9090` (requires `secret`, exposed by host network mode)
-- Proxy ports (from `mihomo/config.yaml`, exposed by host network mode):
-  - mixed: `7990`
-  - http: `7991`
-  - socks5: `7992`
-  - redir: `7993`
+- mihomo API: `http://localhost:9090` (requires `secret`, published only on `127.0.0.1`)
+- Proxy ports (from `mihomo/config.yaml`, explicitly published by Compose):
+  - mixed: `7990/tcp`, `7990/udp`
+  - http: `7991/tcp`
+  - socks5: `7992/tcp`, `7992/udp`
+  - redir: `7993/tcp`, `7993/udp`
+  - DNS: `1053/udp`
 
-## Common Scripts
-- `./proxy-up.sh`: start all services
-- `./proxy-stop.sh`: stop services (keep containers)
-- `./proxy-down.sh`: stop and remove containers
-- `./proxy-clean.sh`: prune stopped containers, unused images, and build cache without touching running services
-- `./proxy-reset-cache.sh`: back up and remove `mihomo/cache.db`, then recreate the `mihomo` container
-- `./proxy-reload.sh`: restart `mihomo` to reload config
-- `./proxy-refresh.sh`: refresh provider files by list and reload `mihomo`
-- `./proxy-refresh-manual.sh`: trigger an immediate one-time refresh
-- `./proxy-upgrade.sh`: pull newer images and recreate services
+## Common Commands
+All container operations use one entrypoint:
+```bash
+./proxy.sh <command>
+```
+
+- `./proxy.sh up`: start all services
+- `./proxy.sh stop`: stop services without removing containers
+- `./proxy.sh down`: stop and remove containers
+- `./proxy.sh clean`: prune stopped containers, unused images, and build cache without touching running services
+- `./proxy.sh reset-cache`: back up and remove `mihomo/cache.db`, then recreate the `mihomo` container
+- `./proxy.sh reload`: restart `mihomo` to reload config
+- `./proxy.sh refresh`: refresh provider files by list and reload `mihomo`
+- `./proxy.sh upgrade`: pull newer images and recreate services
+- `./proxy.sh ps`: show Compose service status
+- `./proxy.sh logs`: follow Compose logs
 
 ## Upgrade Images
 Run:
 ```bash
-./proxy-upgrade.sh
+./proxy.sh upgrade
 ```
 
 The script does the following:
 1. Pull the image versions declared in `docker-compose.yml` (`mihomo`, `metacubexd`).
-2. Rebuild local `provider-refresh-cron` image with latest base image.
+2. Rebuild local `provider-refresh-cron` image with the pinned base image.
 3. Run `up -d` to recreate services with updated images.
 
 ## Cleanup Docker Resources
 Run:
 ```bash
-./proxy-clean.sh
+./proxy.sh clean
 ```
 
 The script does the following:
@@ -77,8 +88,7 @@ cp scripts/provider-refresh.conf.example scripts/provider-refresh.conf
 
 Recommended `.env` values:
 ```bash
-PROVIDER_LIST="qyt,equal"
-QYT_SUB_URL="..."
+PROVIDER_LIST="equal"
 EQUAL_SUB_URL="..."
 SUB_UA="ClashforWindows/0.20.39"
 ```
@@ -89,10 +99,10 @@ Variable priority (per variable):
 3. `scripts/provider-refresh.conf`
 
 Compatibility note:
-- `qyt` still supports legacy `SUB_URL` (recommended to migrate to `QYT_SUB_URL`).
+- If `scripts/provider-refresh.conf` exists, make sure its `PROVIDER_LIST` also includes every provider you want refreshed, for example `PROVIDER_LIST="equal"`.
 
 ## Scheduled Refresh
-`./proxy-up.sh` also starts `provider-refresh-cron` for automatic refresh.
+`./proxy.sh up` also starts `provider-refresh-cron` for automatic refresh.
 
 - Cron file: `scripts/provider-refresh.cron`
 - Default schedule: `0 * * * * /workspace/scripts/provider-refresh.sh`
@@ -105,19 +115,14 @@ Compatibility note:
 The top-level outbound entry is `proxy-groups.PROXY` in `mihomo/config.yaml`.
 
 Available choices now:
-- `EQUAL`: direct single-hop via the `equal` provider
-- `QYT`: direct single-hop via the `qyt` provider
-- `EQUAL-VIA-QYT`: chain mode, use `equal` nodes as the exit hop and `QYT` as the dialer hop
-- `QYT-VIA-EQUAL`: chain mode, use `qyt` nodes as the exit hop and `EQUAL` as the dialer hop
+- `AUTO`: fallback mode via the `equal` provider; this is the recommended stable default
+- `MANUAL`: direct manual selection via the `equal` provider
+- `DIRECT`: bypass proxy
 
-Recommended chain setup in MetaCubeXD:
+Recommended setup in MetaCubeXD:
 1. Open `http://localhost:28080`
-2. In group `QYT`, pick the first-hop node you want to use
-3. In group `EQUAL`, pick the first-hop node you want to use when using `QYT-VIA-EQUAL`
-4. In group `PROXY`, switch to either `EQUAL-VIA-QYT` or `QYT-VIA-EQUAL`
-5. Inside that chained group, pick the second-hop exit node
-
-The chained providers are implemented with `dialer-proxy`, so each node in the chained view will establish its connection through the corresponding first-hop group.
+2. Keep group `PROXY` on `AUTO` for normal use
+3. Use `MANUAL` only when you need to pin a specific node temporarily
 
 If you want to force a direct single-hop default in config, keep only the direct groups in `PROXY`:
 ```yaml
@@ -125,17 +130,26 @@ proxy-groups:
   - name: "PROXY"
     type: select
     proxies:
-      - EQUAL
-      - QYT
+      - AUTO
+      - MANUAL
       - DIRECT
 ```
 
 Apply config changes with:
 ```bash
-./proxy-reload.sh
+./proxy.sh reload
 ```
 
+## UDP Stability Notes
+This setup publishes UDP ports explicitly instead of relying on Docker host networking:
+- Use `7992/udp` for SOCKS5 UDP associate clients.
+- Use `1053/udp` for DNS clients.
+- DNS upstreams use DoH, so clients can keep using UDP to this host while `mihomo` resolves through HTTPS upstreams.
+
+If `7992/udp` accepts SOCKS5 UDP associate but external UDP requests still time out, check MetaCubeXD or the controller API for `AUTO` health. When all provider nodes are unhealthy, no Docker-side configuration can make proxied UDP work; refresh or replace the subscription first.
+
 ## Repository Layout
+- `proxy.sh`: single command entrypoint for container operations
 - `docker-compose.yml`: container orchestration
 - `scripts/compose.sh`: Compose compatibility wrapper for `docker compose` / `docker-compose`
 - `mihomo/config.yaml`: mihomo core config (ports, rules, provider references)

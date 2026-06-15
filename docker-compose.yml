@@ -3,20 +3,37 @@ services:
     image: docker.io/metacubex/mihomo:v1.19.20
     container_name: mihomo
     restart: unless-stopped
-    network_mode: host
+    ports:
+      - "7990:7990/tcp"
+      - "7990:7990/udp"
+      - "7991:7991/tcp"
+      - "7992:7992/tcp"
+      - "7992:7992/udp"
+      - "7993:7993/tcp"
+      - "7993:7993/udp"
+      - "1053:1053/udp"
+      - "127.0.0.1:9090:9090/tcp"
     volumes:
       - ./mihomo:/root/.config/mihomo
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   metacubexd:
     image: ghcr.io/metacubex/metacubexd:latest
     container_name: metacubexd
     restart: unless-stopped
     environment:
-      - DEFAULT_BACKEND_URL=http://host.docker.internal:9090
+      - DEFAULT_BACKEND_URL=http://127.0.0.1:9090
     ports:
       - "28080:80"
     depends_on:
       - mihomo
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   provider-refresh-cron:
     build:
@@ -24,11 +41,14 @@ services:
       dockerfile: ./docker/provider-refresh-cron/Dockerfile
     container_name: provider-refresh-cron
     restart: unless-stopped
-    network_mode: host
     depends_on:
       - mihomo
     environment:
-      - MIHOMO_CONTROLLER_URL=http://127.0.0.1:9090
+      - MIHOMO_CONTROLLER_URL=http://mihomo:9090
     volumes:
       - ./:/workspace
       - ./scripts/provider-refresh.cron:/etc/crontabs/root:ro
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"

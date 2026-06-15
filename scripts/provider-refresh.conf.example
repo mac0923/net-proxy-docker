@@ -1,9 +1,6 @@
 # Fallback values for provider refresh script (example file).
 # Copy to scripts/provider-refresh.conf and fill your own values.
 # Priority order for each variable: runtime env > .env > scripts/provider-refresh.conf
-PROVIDER_LIST="qyt,equal"
-QYT_SUB_URL="https://your-qyt-subscription-url"
+PROVIDER_LIST="equal"
 EQUAL_SUB_URL="https://your-equal-subscription-url"
-# Backward compatibility for old config key.
-SUB_URL="$QYT_SUB_URL"
 SUB_UA="ClashforWindows/0.20.39"
