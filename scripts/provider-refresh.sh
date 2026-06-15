@@ -13,7 +13,11 @@ MIHOMO_API_SECRET="${MIHOMO_API_SECRET:-}"
 PROCESS_PROVIDER_NAME="${PROVIDER_NAME:-}"
 PROCESS_PROVIDER_LIST="${PROVIDER_LIST:-}"
 PROCESS_SUB_UA="${SUB_UA:-}"
+PROCESS_SUB_PROXY_URL="${SUB_PROXY_URL:-}"
+PROCESS_SUB_PROXY_NO_PROXY="${SUB_PROXY_NO_PROXY:-}"
 UA=""
+SUB_PROXY_URL=""
+SUB_PROXY_NO_PROXY=""
 TARGET_LIST=""
 SUCCESS_PROVIDERS=()
 FAILED_PROVIDERS=()
@@ -62,7 +66,17 @@ if [[ -n "$PROCESS_SUB_UA" ]]; then
   SUB_UA="$PROCESS_SUB_UA"
 fi
 
+if [[ -n "$PROCESS_SUB_PROXY_URL" ]]; then
+  SUB_PROXY_URL="$PROCESS_SUB_PROXY_URL"
+fi
+
+if [[ -n "$PROCESS_SUB_PROXY_NO_PROXY" ]]; then
+  SUB_PROXY_NO_PROXY="$PROCESS_SUB_PROXY_NO_PROXY"
+fi
+
 UA="${SUB_UA:-ClashforWindows/0.20.39}"
+SUB_PROXY_URL="${SUB_PROXY_URL:-}"
+SUB_PROXY_NO_PROXY="${SUB_PROXY_NO_PROXY:-mihomo,127.0.0.1,localhost}"
 
 if [[ -n "$PROCESS_PROVIDER_NAME" ]]; then
   TARGET_LIST="$PROCESS_PROVIDER_NAME"
@@ -145,6 +159,44 @@ restart_mihomo_via_docker() {
   return 1
 }
 
+download_provider() {
+  local provider="$1"
+  local provider_url="$2"
+  local tmp_file="$3"
+  local direct_status
+  local proxied_status
+  local -a curl_args
+
+  curl_args=(-fsSL --retry 3 --retry-all-errors --connect-timeout 10 --max-time 60 -A "$UA" "$provider_url" -o "$tmp_file")
+
+  rm -f "$tmp_file"
+  if HTTP_PROXY= HTTPS_PROXY= ALL_PROXY= http_proxy= https_proxy= all_proxy= curl "${curl_args[@]}"; then
+    return 0
+  fi
+  direct_status=$?
+
+  rm -f "$tmp_file"
+  if [[ -z "$SUB_PROXY_URL" ]]; then
+    return "$direct_status"
+  fi
+
+  echo "Direct refresh failed for provider '$provider', retrying via proxy: $SUB_PROXY_URL" >&2
+  if HTTP_PROXY="$SUB_PROXY_URL" \
+    HTTPS_PROXY="$SUB_PROXY_URL" \
+    ALL_PROXY="$SUB_PROXY_URL" \
+    http_proxy="$SUB_PROXY_URL" \
+    https_proxy="$SUB_PROXY_URL" \
+    all_proxy="$SUB_PROXY_URL" \
+    NO_PROXY="$SUB_PROXY_NO_PROXY" \
+    no_proxy="$SUB_PROXY_NO_PROXY" \
+    curl "${curl_args[@]}"; then
+    return 0
+  fi
+  proxied_status=$?
+
+  return "$proxied_status"
+}
+
 for provider in $TARGET_LIST; do
   provider="${provider// /}"
   if [[ -z "$provider" ]]; then
@@ -174,7 +226,7 @@ for provider in $TARGET_LIST; do
   TEMP_FILES+=("$tmp_file")
   ((TEMP_FILE_COUNT += 1))
 
-  if ! curl -fL --retry 3 --connect-timeout 10 --max-time 60 -A "$UA" "$provider_url" -o "$tmp_file"; then
+  if ! download_provider "$provider" "$provider_url" "$tmp_file"; then
     echo "Failed to refresh provider '$provider'." >&2
     FAILED_PROVIDERS+=("$provider")
     ((FAILED_PROVIDER_COUNT += 1))

@@ -45,6 +45,8 @@ services:
       - mihomo
     environment:
       - MIHOMO_CONTROLLER_URL=http://mihomo:9090
+      - SUB_PROXY_URL=http://mihomo:7990
+      - SUB_PROXY_NO_PROXY=mihomo,127.0.0.1,localhost
     volumes:
       - ./:/workspace
       - ./scripts/provider-refresh.cron:/etc/crontabs/root:ro
