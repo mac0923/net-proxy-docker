@@ -23,14 +23,14 @@ dns:
   ipv6: false
   enhanced-mode: fake-ip
   default-nameserver:
+    - 127.0.0.11
+  proxy-server-nameserver:
+    - 127.0.0.11
+  nameserver:
+    - 127.0.0.11
+  fallback:
     - 223.5.5.5
     - 119.29.29.29
-  nameserver:
-    - https://dns.alidns.com/dns-query
-    - https://doh.pub/dns-query
-  fallback:
-    - https://1.1.1.1/dns-query
-    - https://dns.google/dns-query
   fallback-filter:
     geoip: true
     geoip-code: CN
