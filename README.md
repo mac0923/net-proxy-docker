@@ -66,6 +66,17 @@ Config priority: runtime environment variables > `.env` > `scripts/provider-refr
 
 ## Scheduled Refresh
 
+All containers use the `America/New_York` timezone, including daylight saving
+time, and English environment settings (`LANG`/`LC_ALL=en_US.UTF-8`,
+`LANGUAGE=en_US:en`). Scheduled refresh runs according to New York time.
+The dashboard is built from the latest upstream image with `tzdata` added.
+Its display language is a separate browser preference in the language menu;
+select English there when using a new browser or dashboard URL.
+
+The pinned Mihomo version is `v1.19.32`; the refresh container uses Alpine
+`3.24.2`. Update pinned versions in Compose/the Dockerfile for future releases,
+then run `./proxy.sh upgrade`. This also refreshes the dashboard's latest image.
+
 `./proxy.sh up` starts `provider-refresh-cron`, which refreshes providers every hour.
 
 ```bash
@@ -100,6 +111,7 @@ orbctl start
 - `scripts/provider-refresh.sh`: provider refresh script
 - `scripts/provider-refresh.cron`: scheduled refresh
 - `docker/provider-refresh-cron/Dockerfile`: cron container image
+- `docker/metacubexd/Dockerfile`: dashboard image with timezone data
 
 ## Note
 

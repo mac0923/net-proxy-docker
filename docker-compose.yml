@@ -1,8 +1,15 @@
+x-container-environment: &container-environment
+  TZ: America/New_York
+  LANG: en_US.UTF-8
+  LC_ALL: en_US.UTF-8
+  LANGUAGE: en_US:en
+
 services:
   mihomo:
-    image: docker.io/metacubex/mihomo:v1.19.25
+    image: docker.io/metacubex/mihomo:v1.19.32
     container_name: mihomo
     restart: unless-stopped
+    environment: *container-environment
     ports:
       - "7990:7990/tcp"
       - "7990:7990/udp"
@@ -21,11 +28,15 @@ services:
         max-file: "3"
 
   metacubexd:
-    image: ghcr.io/metacubex/metacubexd:latest
+    image: metacubexd-local:latest
+    build:
+      context: .
+      dockerfile: ./docker/metacubexd/Dockerfile
     container_name: metacubexd
     restart: unless-stopped
     environment:
-      - DEFAULT_BACKEND_URL=http://127.0.0.1:9090
+      <<: *container-environment
+      DEFAULT_BACKEND_URL: http://127.0.0.1:9090
     ports:
       - "28080:80"
     depends_on:
@@ -44,9 +55,10 @@ services:
     depends_on:
       - mihomo
     environment:
-      - MIHOMO_CONTROLLER_URL=http://mihomo:9090
-      - SUB_PROXY_URL=http://mihomo:7990
-      - SUB_PROXY_NO_PROXY=mihomo,127.0.0.1,localhost
+      <<: *container-environment
+      MIHOMO_CONTROLLER_URL: http://mihomo:9090
+      SUB_PROXY_URL: http://mihomo:7990
+      SUB_PROXY_NO_PROXY: mihomo,127.0.0.1,localhost
     volumes:
       - ./:/workspace
       - ./scripts/provider-refresh.cron:/etc/crontabs/root:ro

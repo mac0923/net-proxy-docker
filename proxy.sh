@@ -78,10 +78,10 @@ case "$command" in
 
   upgrade)
     echo "[1/3] Pull images declared in compose..."
-    compose pull mihomo metacubexd
+    compose pull mihomo
 
-    echo "[2/3] Rebuild local cron image with pinned base image..."
-    compose build --pull provider-refresh-cron
+    echo "[2/3] Rebuild dashboard and cron images with fresh base images..."
+    compose build --pull metacubexd provider-refresh-cron
 
     echo "[3/3] Recreate services with updated images..."
     compose up -d
